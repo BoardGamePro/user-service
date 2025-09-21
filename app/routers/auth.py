@@ -8,7 +8,7 @@ from typing import Annotated
 from ..schemas import UserCreate, UserOut, LoginIn, TokenOut, RequestResetIn, ResetPasswordIn, RefreshTokenIn
 from ..models import User, Token
 from ..dependencies import get_db
-from ..utils import mint_token, send_email, hash_token, pwd_ctx, get_user_by_refresh_token  # Добавлен импорт
+from ..utils import mint_token, send_email, hash_token, pwd_ctx, get_user_by_refresh_token
 from ..config import ACCESS_TOKEN_TTL_MIN, EMAIL_VERIF_TTL_H, RESET_TTL_H, APP_BASE_URL, REFRESH_TOKEN_TTL_DAYS
 
 auth = APIRouter(prefix="/auth", tags=["auth"])
