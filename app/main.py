@@ -4,6 +4,13 @@ from fastapi.security import HTTPBearer
 from .routers.auth import auth
 from .routers.users import users
 from .database import create_all
+from fastapi.middleware.cors import CORSMiddleware
+
+origins = [
+    "http://localhost:3000",
+    "http://localhost",
+    "http://localhost:8080",
+]
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -18,6 +25,13 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
     openapi_tags=[{"name": "auth", "description": "Authentication operations"}, {"name": "users", "description": "User operations"}]
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 app.include_router(auth)
 app.include_router(users)
