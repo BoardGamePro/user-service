@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, status, Response
+from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import secrets
 from typing import Annotated
 
@@ -28,10 +28,8 @@ async def register(payload: UserCreate, db: Annotated[AsyncSession, Depends(get_
         email=str(payload.email).lower(),
         password=pwd_ctx.hash(payload.password),
         role=payload.role,
-
-        # Временно поставил тру, тк еще не добавил smtp
+        # Позже заменить на False, если нужна верификация email
         is_email_verified=True
-        # is_email_verified=False,
     )
     db.add(user)
     await db.commit()
@@ -65,7 +63,7 @@ async def verify_email(token: str, db: Annotated[AsyncSession, Depends(get_db)])
     return {"detail": "Email подтверждён"}
 
 @auth.post("/login", response_model=TokenOut)
-async def login(body: LoginIn, db: Annotated[AsyncSession, Depends(get_db)]):
+async def login(body: LoginIn, db: Annotated[AsyncSession, Depends(get_db)], response: Response):
     """Проверяет логин/пароль и выдаёт access- и refresh-токены."""
     res = await db.execute(select(User).where(User.username == body.username))
     user = res.scalar_one_or_none()
@@ -75,9 +73,16 @@ async def login(body: LoginIn, db: Annotated[AsyncSession, Depends(get_db)]):
         raise HTTPException(status_code=403, detail="Email не подтверждён")
     access_token = await mint_token(db, user, "access", ttl=timedelta(minutes=ACCESS_TOKEN_TTL_MIN))
     refresh_token = await mint_token(db, user, "refresh", ttl=timedelta(days=REFRESH_TOKEN_TTL_DAYS))
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60
+    )
     return TokenOut(
         access_token=access_token,
-        refresh_token=refresh_token,
         expires_in=ACCESS_TOKEN_TTL_MIN * 60
     )
 

@@ -5,6 +5,9 @@ from .routers.auth import auth
 from .routers.users import users
 from .database import create_all
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+
+load_dotenv()
 
 origins = [
     "http://localhost:3000",

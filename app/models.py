@@ -6,7 +6,7 @@ from datetime import datetime
 from .database import Base
 
 class User(Base):
-    """Модель пользователя: хранит учётные данные и роль."""
+    """Модель пользователя: хранит учётные данные, роль, описание и настройки приватности."""
     __tablename__ = "users"
     id: Mapped[str] = mapped_column(PGUUID(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()"))
     username: Mapped[str] = mapped_column(String, unique=True, nullable=False)
@@ -14,6 +14,9 @@ class User(Base):
     password: Mapped[str] = mapped_column(String, nullable=False)
     role: Mapped[str] = mapped_column(String, nullable=False, default="user")
     is_email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    bio: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
+    is_profile_public: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_collection_public: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     tokens: Mapped[list["Token"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 

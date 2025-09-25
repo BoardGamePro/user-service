@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Optional
 import re
 
 USERNAME_RE = re.compile(r"^[a-zA-Z0-9_]{3,32}$")
@@ -9,6 +9,9 @@ class UserBase(BaseModel):
     username: Annotated[str, Field(..., description="Уникальное имя пользователя")]
     email: Annotated[EmailStr, Field(..., description="Email пользователя")]
     role: Annotated[Literal["user", "admin"], Field(default="user", description="Роль пользователя")]
+    bio: Optional[str] = None
+    is_profile_public: bool = True
+    is_collection_public: bool = True
 
     @field_validator("username")
     @classmethod
@@ -30,11 +33,13 @@ class UserCreate(UserBase):
         return v
 
 class UserOut(BaseModel):
-    id: str
     username: str
     email: EmailStr
     role: str
     is_email_verified: bool
+    bio: Optional[str] = None
+    is_profile_public: bool
+    is_collection_public: bool
 
 class LoginIn(BaseModel):
     username: str
@@ -42,11 +47,11 @@ class LoginIn(BaseModel):
 
 class TokenOut(BaseModel):
     access_token: str
-    refresh_token: str  # Добавляем refresh-токен
-    token_type: Literal["opaque"] = "opaque"
     expires_in: int
+    refresh_token: str | None = None  # refresh_token теперь опционален
+    token_type: Literal["opaque"] = "opaque"
 
-class RefreshTokenIn(BaseModel):  # Новая схема для запроса обновления
+class RefreshTokenIn(BaseModel):  # схема для запроса обновления
     refresh_token: str
 
 class ChangeUsernameIn(BaseModel):
@@ -88,3 +93,11 @@ class ResetPasswordIn(BaseModel):
         if not re.search(r"[A-Za-z]", v) or not re.search(r"\d", v):
             raise ValueError("пароль должен содержать буквы и цифры")
         return v
+
+class BlacklistEntry(BaseModel):
+    id: int
+    user_id: str
+    blocked_user_id: str
+
+class BlacklistAddIn(BaseModel):
+    blocked_user_id: str
