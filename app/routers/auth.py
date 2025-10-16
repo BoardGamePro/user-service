@@ -1,33 +1,30 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta, timezone
 import secrets
 from typing import Annotated
 
-from ..schemas import UserCreate, UserOut, LoginIn, TokenOut, RequestResetIn, ResetPasswordIn, RefreshTokenIn
+from ..schemas import UserCreate, UserOut, LoginIn, TokenOut, RequestResetIn, ResetPasswordIn, UserRegisterBase as UserRegister
 from ..models import User, Token
 from ..dependencies import get_db
-from ..utils import mint_token, send_email, hash_token, pwd_ctx, get_user_by_refresh_token
+from ..utils import mint_token, send_email, hash_token, pwd_ctx, get_user_by_refresh_token, normalize_email
 from ..config import ACCESS_TOKEN_TTL_MIN, EMAIL_VERIF_TTL_H, RESET_TTL_H, APP_BASE_URL, REFRESH_TOKEN_TTL_DAYS
 
 auth = APIRouter(prefix="/auth", tags=["auth"])
 
 @auth.post("/register", response_model=UserOut, status_code=201)
-async def register(payload: UserCreate, db: Annotated[AsyncSession, Depends(get_db)]):
+async def register(payload: UserRegister, db: Annotated[AsyncSession, Depends(get_db)]):
     """Регистрирует пользователя и отправляет письмо для подтверждения email."""
-    res = await db.execute(select(User).where((User.username == payload.username) | (User.email == payload.email)))
+    res = await db.execute(select(User).where((User.username == payload.username) | (User.email == normalize_email(payload.email))))
     if res.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="username или email уже заняты")
 
-    if payload.role not in {"user", "admin"}:
-        raise HTTPException(status_code=422, detail="Недопустимая роль")
-
     user = User(
         username=payload.username,
-        email=str(payload.email).lower(),
+        email=normalize_email(payload.email),
         password=pwd_ctx.hash(payload.password),
-        role=payload.role,
+        role="user",  # Роль всегда "user" при регистрации
         # Позже заменить на False, если нужна верификация email
         is_email_verified=True
     )
@@ -87,11 +84,14 @@ async def login(body: LoginIn, db: Annotated[AsyncSession, Depends(get_db)], res
     )
 
 @auth.post("/refresh", response_model=TokenOut)
-async def refresh_token(data: RefreshTokenIn, db: Annotated[AsyncSession, Depends(get_db)]):
-    """Обновляет access-токен по валидному refresh-токену."""
-    user = await get_user_by_refresh_token(db, data.refresh_token)
+async def refresh_token(request: Request, response: Response, db: Annotated[AsyncSession, Depends(get_db)]) -> TokenOut:
+    """Обновляет access-токен по валидному refresh-токену из куки."""
+    refresh_token = request.cookies.get("refresh_token")
+    if not refresh_token:
+        raise HTTPException(status_code=400, detail="Refresh token missing")
+    user = await get_user_by_refresh_token(db, refresh_token)
     # Отзываем старый refresh-токен
-    th = hash_token(data.refresh_token)
+    th = hash_token(refresh_token)
     res = await db.execute(select(Token).where(Token.token_hash == th, Token.type == "refresh"))
     token = res.scalar_one_or_none()
     if token:
@@ -99,17 +99,25 @@ async def refresh_token(data: RefreshTokenIn, db: Annotated[AsyncSession, Depend
         await db.commit()
     # Выдаём новые токены
     access_token = await mint_token(db, user, "access", ttl=timedelta(minutes=ACCESS_TOKEN_TTL_MIN))
-    refresh_token = await mint_token(db, user, "refresh", ttl=timedelta(days=REFRESH_TOKEN_TTL_DAYS))
+    new_refresh_token = await mint_token(db, user, "refresh", ttl=timedelta(days=REFRESH_TOKEN_TTL_DAYS))
+    response.set_cookie(
+        key="refresh_token",
+        value=new_refresh_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60
+    )
     return TokenOut(
         access_token=access_token,
-        refresh_token=refresh_token,
-        expires_in=ACCESS_TOKEN_TTL_MIN * 60
+        expires_in=ACCESS_TOKEN_TTL_MIN * 60,
+        refresh_token=new_refresh_token
     )
 
 @auth.post("/request-password-reset")
 async def request_password_reset(data: RequestResetIn, db: Annotated[AsyncSession, Depends(get_db)]):
     """Создаёт токен/код для сброса пароля и отправляет на email."""
-    res = await db.execute(select(User).where(User.email == str(data.email).lower()))
+    res = await db.execute(select(User).where(User.email == normalize_email(data.email)))
     user = res.scalar_one_or_none()
     if not user:
         return {"detail": "Если email существует, инструкция отправлена"}

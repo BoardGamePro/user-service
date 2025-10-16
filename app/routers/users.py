@@ -6,7 +6,7 @@ from datetime import timedelta
 from typing import Annotated, Optional
 from pydantic import BaseModel
 
-from ..schemas import UserOut, ChangeUsernameIn, ChangeEmailIn, ChangePasswordIn
+from ..schemas import UserOut, UserPublicOut, ChangeUsernameIn, ChangeEmailIn, ChangePasswordIn
 from ..models import User
 from ..dependencies import get_db, get_current_user
 from ..utils import send_email, mint_token, pwd_ctx
@@ -22,16 +22,17 @@ async def get_me(current: Annotated[User, Depends(get_current_user)]):
     Возвращает данные текущего пользователя по access-токену.
     """
     return UserOut(
+        id=str(current.id),
         username=str(current.username),
-        email=str(current.email),
+        email=current.email,
         role=str(current.role),
-        is_email_verified=bool(current.is_email_verified),
+        is_email_verified=current.is_email_verified,
         bio=str(current.bio) if current.bio is not None else None,
         is_profile_public=bool(current.is_profile_public),
         is_collection_public=bool(current.is_collection_public),
     )
 
-@users.get("/{username}", response_model=UserOut)
+@users.get("/{username}", response_model=UserPublicOut)
 async def get_user_profile(username: str, db: Annotated[AsyncSession, Depends(get_db)]):
     """
     Получить публичный профиль пользователя по username (с учётом приватности).
@@ -42,14 +43,33 @@ async def get_user_profile(username: str, db: Annotated[AsyncSession, Depends(ge
         raise HTTPException(status_code=404, detail="Пользователь не найден")
     if not user.is_profile_public:
         raise HTTPException(status_code=403, detail="Профиль скрыт настройками приватности")
-    return UserOut(
+    return UserPublicOut(
+        id=str(user.id),
         username=str(user.username),
-        email=str(user.email),
-        role=str(user.role),
-        is_email_verified=bool(user.is_email_verified),
         bio=str(user.bio) if user.bio is not None else None,
         is_profile_public=bool(user.is_profile_public),
         is_collection_public=bool(user.is_collection_public),
+        role=str(user.role),
+    )
+
+@users.get("/id/{user_id}", response_model=UserPublicOut)
+async def get_user_by_id(user_id: str, db: Annotated[AsyncSession, Depends(get_db)]):
+    """
+    Получить публичный профиль пользователя по id.
+    """
+    res = await db.execute(select(User).where(User.id == user_id))
+    user = res.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    if not user.is_profile_public:
+        raise HTTPException(status_code=403, detail="Профиль скрыт настройками приватности")
+    return UserPublicOut(
+        id=str(user.id),
+        username=str(user.username),
+        bio=str(user.bio) if user.bio is not None else None,
+        is_profile_public=bool(user.is_profile_public),
+        is_collection_public=bool(user.is_collection_public),
+        role=str(user.role),
     )
 
 @users.patch("/me/username", response_model=UserOut, dependencies=[Depends(security)])
@@ -64,10 +84,11 @@ async def change_username(data: ChangeUsernameIn, current: Annotated[User, Depen
     await db.commit()
     await db.refresh(current)
     return UserOut(
+        id=str(current.id),
         username=str(current.username),
-        email=str(current.email),
+        email=current.email,
         role=str(current.role),
-        is_email_verified=bool(current.is_email_verified),
+        is_email_verified=current.is_email_verified,
         bio=str(current.bio) if current.bio is not None else None,
         is_profile_public=bool(current.is_profile_public),
         is_collection_public=bool(current.is_collection_public),
@@ -90,10 +111,11 @@ async def change_email(data: ChangeEmailIn, current: Annotated[User, Depends(get
     link = f"{APP_BASE_URL}/auth/verify-email?token={token}"
     send_email(str(current.email), "Подтверждение нового email", f"Перейдите по ссылке: {link}")
     return UserOut(
+        id=str(current.id),
         username=str(current.username),
-        email=str(current.email),
+        email=current.email,
         role=str(current.role),
-        is_email_verified=bool(current.is_email_verified),
+        is_email_verified=current.is_email_verified,
         bio=str(current.bio) if current.bio is not None else None,
         is_profile_public=bool(current.is_profile_public),
         is_collection_public=bool(current.is_collection_public),
@@ -129,10 +151,11 @@ async def change_profile(
     await db.commit()
     await db.refresh(current)
     return UserOut(
+        id=str(current.id),
         username=str(current.username),
-        email=str(current.email),
+        email=current.email,
         role=str(current.role),
-        is_email_verified=bool(current.is_email_verified),
+        is_email_verified=current.is_email_verified,
         bio=str(current.bio) if current.bio is not None else None,
         is_profile_public=bool(current.is_profile_public),
         is_collection_public=bool(current.is_collection_public),
@@ -146,6 +169,7 @@ async def logout(
     current: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)]
 ):
+    """Отзывает refresh-токен и удаляет его из куки."""
     refresh_token = request.cookies.get("refresh_token")
     if refresh_token:
         from ..utils import hash_token
@@ -162,7 +186,7 @@ async def logout(
 
 @users.delete("/me", dependencies=[Depends(security)])
 async def delete_account(current: Annotated[User, Depends(get_current_user)], db: Annotated[AsyncSession, Depends(get_db)]):
-    # Удаление пользователя из БД
+    """Удаляет аккаунт текущего пользователя."""
     await db.delete(current)
     await db.commit()
     return JSONResponse(status_code=status.HTTP_200_OK, content={"detail": "Account deleted"})
@@ -173,16 +197,19 @@ async def list_users(
     limit: int = Query(20, ge=1, le=100, description="Сколько пользователей вернуть"),
     offset: int = Query(0, ge=0, description="Смещение для пагинации")
 ):
-    """Получить список аккаунтов с пагинацией и сортировкой по алфавиту (username)."""
+    """
+    Получить список аккаунтов с пагинацией и сортировкой по алфавиту (username).
+    """
     res = await db.execute(
         select(User).order_by(asc(User.username)).offset(offset).limit(limit)
     )
     users_list = res.scalars().all()
     return [UserOut(
+        id=str(u.id),
         username=str(u.username),
-        email=str(u.email),
+        email=u.email,
         role=str(u.role),
-        is_email_verified=bool(u.is_email_verified),
+        is_email_verified=u.is_email_verified,
         bio=str(u.bio) if u.bio is not None else None,
         is_profile_public=bool(u.is_profile_public),
         is_collection_public=bool(u.is_collection_public),

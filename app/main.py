@@ -17,6 +17,7 @@ origins = [
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Создание таблиц базы данных при запуске приложения."""
     await create_all()
     yield
 
@@ -41,4 +42,5 @@ app.include_router(users)
 
 @app.get("/healthz")
 async def healthz():
+    """Проверка здоровья сервиса."""
     return {"status": "ok"}

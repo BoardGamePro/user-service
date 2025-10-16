@@ -15,6 +15,7 @@ venv/
 
 # Alembic
 alembic/versions/
+alembic.ini
 
 # Environment
 .env

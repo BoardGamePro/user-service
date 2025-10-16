@@ -76,3 +76,7 @@ async def get_user_by_refresh_token(session: AsyncSession, token: str) -> User:
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный или просроченный refresh-токен")
     return user
+
+def normalize_email(email: str) -> str:
+    """Нормализует email: приводит к нижнему регистру."""
+    return str(email).lower()

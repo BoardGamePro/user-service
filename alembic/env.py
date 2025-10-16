@@ -18,7 +18,13 @@ if config.config_file_name is not None:
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from app.database import Base
-import app.models  # Явный импорт моделей для Alembic
+import app.models
+from app.models import User, Token  # Явный импорт моделей для Alembic
+
+# Получаем строку подключения для Alembic
+DB_URL = os.environ.get("ALEMBIC_DATABASE_URL") or os.environ.get("DATABASE_URL")
+if DB_URL:
+    config.set_main_option("sqlalchemy.url", DB_URL)
 
 # add your model's MetaData object here
 # for 'autogenerate' support
