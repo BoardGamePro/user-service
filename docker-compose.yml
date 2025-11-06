@@ -7,7 +7,6 @@ services:
   # Сервис базы данных PostgreSQL
   db:
     image: postgres:15  # Образ PostgreSQL версии 15
-    restart: always  # Автоматический перезапуск при сбое
     environment:
       POSTGRES_DB: auth  # Имя базы данных
       POSTGRES_USER: dev  # Пользователь базы данных

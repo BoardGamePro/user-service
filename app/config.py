@@ -1,6 +1,6 @@
 import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://dev:devpass@localhost:5432/auth_db")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://dev:devpass@localhost:5432/auth")
 ACCESS_TOKEN_TTL_MIN = int(os.getenv("ACCESS_TOKEN_TTL_MIN", "60"))
 REFRESH_TOKEN_TTL_DAYS = int(os.getenv("REFRESH_TOKEN_TTL_DAYS", "7"))
 EMAIL_VERIF_TTL_H = int(os.getenv("EMAIL_VERIF_TTL_H", "24"))

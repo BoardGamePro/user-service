@@ -5,12 +5,23 @@ from app.config import DATABASE_URL
 from app.main import app
 from app.dependencies import get_db
 
+# Override DATABASE_URL for tests
+TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
+
 @pytest.fixture()
 def db_session():
-    engine = create_async_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False, pool_pre_ping=True)
+
+    async def create_tables():
+        from app.database import Base
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+    import asyncio
+    asyncio.get_event_loop().run_until_complete(create_tables())
+
     SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
     yield SessionLocal
-    import asyncio
     asyncio.get_event_loop().run_until_complete(engine.dispose())
 
 @pytest.fixture(autouse=True)

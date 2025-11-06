@@ -1,5 +1,5 @@
-# Базовый образ с Python 3.11
-FROM python:3.11-slim
+# Базовый образ с Python 3.13
+FROM python:3.13-slim
 
 # Определим рабочую директорию
 WORKDIR /app
@@ -16,6 +16,7 @@ COPY alembic.ini .
 # Переменные окружения для FastAPI
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONPATH=/app
 
 # Команда по умолчанию: запуск миграций и приложения
-CMD alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
