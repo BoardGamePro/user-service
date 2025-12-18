@@ -1,15 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, Request
-from sqlalchemy.future import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime, timedelta, timezone
 import secrets
+import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
-from ..schemas import UserCreate, UserOut, LoginIn, TokenOut, RequestResetIn, ResetPasswordIn, UserRegisterBase as UserRegister
-from ..models import User, Token
-from ..dependencies import get_db
-from ..utils import mint_token, send_email, hash_token, pwd_ctx, get_user_by_refresh_token, normalize_email
+from fastapi import APIRouter, Depends, HTTPException, Response, Request
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+
 from ..config import ACCESS_TOKEN_TTL_MIN, EMAIL_VERIF_TTL_H, RESET_TTL_H, APP_BASE_URL, REFRESH_TOKEN_TTL_DAYS
+from ..dependencies import get_db
+from ..models import User, Token
+from ..schemas import UserOut, LoginIn, TokenOut, RequestResetIn, ResetPasswordIn, UserRegisterBase as UserRegister
+from ..utils import mint_token, send_email, hash_token, pwd_ctx, get_user_by_refresh_token, normalize_email
 
 auth = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -21,6 +23,7 @@ async def register(payload: UserRegister, db: Annotated[AsyncSession, Depends(ge
         raise HTTPException(status_code=400, detail="username или email уже заняты")
 
     user = User(
+        id=str(uuid.uuid4()),
         username=payload.username,
         email=normalize_email(payload.email),
         password=pwd_ctx.hash(payload.password),
@@ -90,14 +93,12 @@ async def refresh_token(request: Request, response: Response, db: Annotated[Asyn
     if not refresh_token:
         raise HTTPException(status_code=400, detail="Refresh token missing")
     user = await get_user_by_refresh_token(db, refresh_token)
-    # Отзываем старый refresh-токен
     th = hash_token(refresh_token)
     res = await db.execute(select(Token).where(Token.token_hash == th, Token.type == "refresh"))
     token = res.scalar_one_or_none()
     if token:
         token.revoked = True
         await db.commit()
-    # Выдаём новые токены
     access_token = await mint_token(db, user, "access", ttl=timedelta(minutes=ACCESS_TOKEN_TTL_MIN))
     new_refresh_token = await mint_token(db, user, "refresh", ttl=timedelta(days=REFRESH_TOKEN_TTL_DAYS))
     response.set_cookie(
@@ -126,7 +127,7 @@ async def request_password_reset(data: RequestResetIn, db: Annotated[AsyncSessio
     code = f"{secrets.randbelow(10**6):06d}"
     await mint_token(db, user, "reset", ttl=timedelta(hours=RESET_TTL_H), raw_token=code)
     send_email(
-        user.email,
+        user.email,  # type: ignore
         "Сброс пароля",
         f"Для сброса перейдите по ссылке: {link}\nИли введите код: {code}"
     )

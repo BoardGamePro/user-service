@@ -21,7 +21,7 @@ docker-compose up --build
 #### 1. Клонирование репозитория
 ```bash
 git clone <repository-url>
-cd auth-service
+cd user-service
 ```
 
 #### 2. Установка зависимостей

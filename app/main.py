@@ -1,11 +1,14 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from fastapi.security import HTTPBearer
-from .routers.auth import auth
-from .routers.users import users
-from .database import create_all
-from fastapi.middleware.cors import CORSMiddleware
+
 from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer
+
+from .database import create_all
+from .routers.auth import auth
+from .routers.comments import comments
+from .routers.users import users
 
 load_dotenv()
 
@@ -39,6 +42,7 @@ app.add_middleware(
 )
 app.include_router(auth)
 app.include_router(users)
+app.include_router(comments)
 
 @app.get("/healthz")
 async def healthz():

@@ -1,11 +1,10 @@
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from app.config import DATABASE_URL
-from app.main import app
-from app.dependencies import get_db
 
-# Override DATABASE_URL for tests
+from app.dependencies import get_db
+from app.main import app
+
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 
 @pytest.fixture()
@@ -37,12 +36,15 @@ def override_get_db(db_session):
 async def setup_clean_test_data(db_session):
     from sqlalchemy import text
     async with db_session() as db:
+        await db.execute(
+            text("DELETE FROM comments WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@example.com')"))
         await db.execute(text("DELETE FROM tokens WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@example.com')"))
         await db.execute(text("DELETE FROM users WHERE email LIKE '%@example.com'"))
         await db.commit()
     yield
-    # Очистка после теста
     async with db_session() as db:
+        await db.execute(
+            text("DELETE FROM comments WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@example.com')"))
         await db.execute(text("DELETE FROM tokens WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@example.com')"))
         await db.execute(text("DELETE FROM users WHERE email LIKE '%@example.com'"))
         await db.commit()

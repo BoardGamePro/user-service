@@ -1,9 +1,11 @@
+from datetime import datetime, timezone
+
 from sqlalchemy import String, Boolean, DateTime, ForeignKey, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from datetime import datetime
 
 from .database import Base
+
 
 class User(Base):
     """Модель пользователя: хранит учётные данные, роль, описание и настройки приватности."""
@@ -35,3 +37,16 @@ class Token(Base):
     __table_args__ = (
         UniqueConstraint("token_hash", name="uq_token_hash"),
     )
+
+
+class Comment(Base):
+    """Модель комментария: хранит комментарии пользователей к страницам правил игр."""
+    __tablename__ = "comments"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    game_name: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    page: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    comment_text: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+                                                 onupdate=lambda: datetime.now(timezone.utc))
