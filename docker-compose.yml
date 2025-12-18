@@ -19,13 +19,14 @@ services:
   # Сервис веб-приложения FastAPI
   web:
     build: .  # Сборка образа из Dockerfile в корне проекта
+    container_name: auth-service 
     command: bash -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"  # Команда: применить миграции и запустить сервер
     environment:
       DATABASE_URL: postgresql+asyncpg://dev:devpass@db:5432/auth  # URL для подключения к БД (asyncpg для приложения)
       ALEMBIC_DATABASE_URL: postgresql+psycopg2://dev:devpass@db:5432/auth  # URL для Alembic (psycopg2 для миграций)
-      APP_BASE_URL: http://localhost:8000  # Базовый URL приложения
+      APP_BASE_URL: http://localhost:8001  # Базовый URL приложения
     ports:
-      - "8000:8000"  # Проброс порта 8000 на хост
+      - "8001:8000"  # Проброс порта 8000 на хост
     depends_on:
       - db  # Зависимость от сервиса db
     volumes:

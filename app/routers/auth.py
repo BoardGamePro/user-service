@@ -78,7 +78,7 @@ async def login(body: LoginIn, db: Annotated[AsyncSession, Depends(get_db)], res
         value=refresh_token,
         httponly=True,
         secure=True,
-        samesite="lax",
+        samesite="none",
         max_age=REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60
     )
     return TokenOut(
@@ -106,7 +106,7 @@ async def refresh_token(request: Request, response: Response, db: Annotated[Asyn
         value=new_refresh_token,
         httponly=True,
         secure=True,
-        samesite="lax",
+        samesite="none",
         max_age=REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60
     )
     return TokenOut(
