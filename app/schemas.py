@@ -135,6 +135,7 @@ class CommentCreate(BaseModel):
     """Схема для создания комментария."""
     game_name: str
     page: str
+    title: Annotated[str, Field(min_length=1, max_length=200)]
     comment_text: Annotated[str, Field(min_length=1, max_length=1000)]
 
 
@@ -145,6 +146,7 @@ class CommentOut(BaseModel):
     username: str
     game_name: str
     page: str
+    title: str
     comment_text: str
     created_at: str
     updated_at: str
@@ -152,4 +154,5 @@ class CommentOut(BaseModel):
 
 class CommentUpdate(BaseModel):
     """Схема для обновления комментария."""
+    title: Annotated[str, Field(min_length=1, max_length=200)]
     comment_text: Annotated[str, Field(min_length=1, max_length=1000)]

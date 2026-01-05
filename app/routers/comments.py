@@ -37,6 +37,7 @@ async def get_comments(
             username=username,
             game_name=comment.game_name,
             page=comment.page,
+            title=comment.title,
             comment_text=comment.comment_text,
             created_at=comment.created_at.isoformat(),
             updated_at=comment.updated_at.isoformat(),
@@ -59,6 +60,7 @@ async def create_comment(
         user_id=current.id,
         game_name=data.game_name,
         page=data.page,
+        title=data.title,
         comment_text=data.comment_text,
     )
     db.add(new_comment)
@@ -70,6 +72,7 @@ async def create_comment(
         username=current.username,  # type: ignore
         game_name=new_comment.game_name,
         page=new_comment.page,
+        title=new_comment.title,
         comment_text=new_comment.comment_text,
         created_at=new_comment.created_at.isoformat(),
         updated_at=new_comment.updated_at.isoformat(),
@@ -92,6 +95,7 @@ async def update_comment(
         raise HTTPException(status_code=404, detail="Комментарий не найден")
     if comment.user_id != current.id:  # type: ignore
         raise HTTPException(status_code=403, detail="Нет прав на изменение этого комментария")
+    comment.title = data.title
     comment.comment_text = data.comment_text
     await db.commit()
     await db.refresh(comment)
@@ -101,6 +105,7 @@ async def update_comment(
         username=current.username,  # type: ignore
         game_name=comment.game_name,
         page=comment.page,
+        title=comment.title,
         comment_text=comment.comment_text,
         created_at=comment.created_at.isoformat(),
         updated_at=comment.updated_at.isoformat(),

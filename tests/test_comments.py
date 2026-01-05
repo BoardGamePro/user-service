@@ -51,6 +51,7 @@ async def test_create_and_get_comments(db_session, setup_clean_test_data):
         resp = await ac.post("/comments/", json={
             "game_name": "Monopoly",
             "page": "1",
+            "title": "My Review",
             "comment_text": "Great game!"
         }, headers=headers1)
         assert resp.status_code == 200
@@ -59,6 +60,7 @@ async def test_create_and_get_comments(db_session, setup_clean_test_data):
         assert comment1["username"] == "user1"
         assert comment1["game_name"] == "Monopoly"
         assert comment1["page"] == "1"
+        assert comment1["title"] == "My Review"
         assert comment1["comment_text"] == "Great game!"
         comment1_id = comment1["id"]
 
@@ -66,6 +68,7 @@ async def test_create_and_get_comments(db_session, setup_clean_test_data):
         resp = await ac.post("/comments/", json={
             "game_name": "Monopoly",
             "page": "1",
+            "title": "Agree",
             "comment_text": "I agree!"
         }, headers=headers2)
         assert resp.status_code == 200
@@ -105,6 +108,7 @@ async def test_update_own_comment(db_session, setup_clean_test_data):
         resp = await ac.post("/comments/", json={
             "game_name": "Chess",
             "page": "rules",
+            "title": "Initial Title",
             "comment_text": "Initial comment"
         }, headers=headers)
         comment = resp.json()
@@ -112,10 +116,12 @@ async def test_update_own_comment(db_session, setup_clean_test_data):
 
         # Обновление комментария
         resp = await ac.put(f"/comments/{comment_id}", json={
+            "title": "Updated Title",
             "comment_text": "Updated comment"
         }, headers=headers)
         assert resp.status_code == 200
         updated = resp.json()
+        assert updated["title"] == "Updated Title"
         assert updated["comment_text"] == "Updated comment"
         assert updated["id"] == comment_id
 
@@ -141,6 +147,7 @@ async def test_delete_own_comment(db_session, setup_clean_test_data):
         resp = await ac.post("/comments/", json={
             "game_name": "Checkers",
             "page": "intro",
+            "title": "Intro Review",
             "comment_text": "Nice intro"
         }, headers=headers)
         comment = resp.json()
@@ -190,6 +197,7 @@ async def test_update_other_comment_forbidden(db_session, setup_clean_test_data)
         resp = await ac.post("/comments/", json={
             "game_name": "Poker",
             "page": "rules",
+            "title": "Poker Rules",
             "comment_text": "Poker rules"
         }, headers=headers5)
         comment = resp.json()
@@ -197,6 +205,7 @@ async def test_update_other_comment_forbidden(db_session, setup_clean_test_data)
 
         # Попытка обновить от user6
         resp = await ac.put(f"/comments/{comment_id}", json={
+            "title": "Hacked",
             "comment_text": "Hacked"
         }, headers=headers6)
         assert resp.status_code == 403
@@ -237,6 +246,7 @@ async def test_delete_other_comment_forbidden(db_session, setup_clean_test_data)
         resp = await ac.post("/comments/", json={
             "game_name": "Bridge",
             "page": "basics",
+            "title": "Bridge Basics",
             "comment_text": "Bridge basics"
         }, headers=headers7)
         comment = resp.json()
@@ -268,6 +278,7 @@ async def test_create_comment_validation(db_session, setup_clean_test_data):
         resp = await ac.post("/comments/", json={
             "game_name": "Test",
             "page": "1",
+            "title": "Test Title",
             "comment_text": ""
         }, headers=headers)
         assert resp.status_code == 422  # Validation error
@@ -281,6 +292,7 @@ async def test_create_comment_unauthorized(db_session, setup_clean_test_data):
         resp = await ac.post("/comments/", json={
             "game_name": "Test",
             "page": "1",
+            "title": "Test",
             "comment_text": "Unauthorized comment"
         })
         assert resp.status_code == 403
@@ -307,6 +319,7 @@ async def test_update_comment_unauthorized(db_session, setup_clean_test_data):
         resp = await ac.post("/comments/", json={
             "game_name": "Test",
             "page": "1",
+            "title": "Test",
             "comment_text": "Test comment"
         }, headers=headers)
         comment = resp.json()
@@ -314,6 +327,7 @@ async def test_update_comment_unauthorized(db_session, setup_clean_test_data):
 
         # Попытка обновить без авторизации
         resp = await ac.put(f"/comments/{comment_id}", json={
+            "title": "Updated",
             "comment_text": "Updated without auth"
         })
         assert resp.status_code == 403
@@ -340,6 +354,7 @@ async def test_delete_comment_unauthorized(db_session, setup_clean_test_data):
         resp = await ac.post("/comments/", json={
             "game_name": "Test",
             "page": "1",
+            "title": "Test",
             "comment_text": "Test comment"
         }, headers=headers)
         comment = resp.json()
@@ -370,6 +385,7 @@ async def test_update_comment_not_found(db_session, setup_clean_test_data):
         # Попытка обновить несуществующий комментарий
         fake_id = str(uuid.uuid4())
         resp = await ac.put(f"/comments/{fake_id}", json={
+            "title": "Updated",
             "comment_text": "Updated"
         }, headers=headers)
         assert resp.status_code == 404
@@ -419,6 +435,7 @@ async def test_update_comment_empty_text(db_session, setup_clean_test_data):
         resp = await ac.post("/comments/", json={
             "game_name": "Test",
             "page": "1",
+            "title": "Initial",
             "comment_text": "Initial comment"
         }, headers=headers)
         comment = resp.json()
@@ -426,6 +443,7 @@ async def test_update_comment_empty_text(db_session, setup_clean_test_data):
 
         # Попытка обновить с пустым текстом
         resp = await ac.put(f"/comments/{comment_id}", json={
+            "title": "Updated",
             "comment_text": ""
         }, headers=headers)
         assert resp.status_code == 422
@@ -453,6 +471,7 @@ async def test_create_comment_long_text(db_session, setup_clean_test_data):
         resp = await ac.post("/comments/", json={
             "game_name": "Test",
             "page": "1",
+            "title": "Test",
             "comment_text": long_text
         }, headers=headers)
         assert resp.status_code == 422
@@ -496,6 +515,7 @@ async def test_create_comment_missing_fields(db_session, setup_clean_test_data):
         # Попытка создать комментарий без game_name
         resp = await ac.post("/comments/", json={
             "page": "1",
+            "title": "Test",
             "comment_text": "Test"
         }, headers=headers)
         assert resp.status_code == 422
@@ -503,6 +523,7 @@ async def test_create_comment_missing_fields(db_session, setup_clean_test_data):
         # Попытка создать комментарий без page
         resp = await ac.post("/comments/", json={
             "game_name": "Test",
+            "title": "Test",
             "comment_text": "Test"
         }, headers=headers)
         assert resp.status_code == 422
@@ -527,6 +548,7 @@ async def test_update_comment_invalid_id(db_session, setup_clean_test_data):
 
         # Попытка обновить с неправильным id
         resp = await ac.put("/comments/invalid-id", json={
+            "title": "Updated",
             "comment_text": "Updated"
         }, headers=headers)
         assert resp.status_code == 404
@@ -587,6 +609,7 @@ async def test_multiple_comments_order(db_session, setup_clean_test_data):
         resp1 = await ac.post("/comments/", json={
             "game_name": "OrderTest",
             "page": "page1",
+            "title": "First",
             "comment_text": "First comment"
         }, headers=headers1)
         comment1 = resp1.json()
@@ -594,6 +617,7 @@ async def test_multiple_comments_order(db_session, setup_clean_test_data):
         resp2 = await ac.post("/comments/", json={
             "game_name": "OrderTest",
             "page": "page1",
+            "title": "Second",
             "comment_text": "Second comment"
         }, headers=headers2)
         comment2 = resp2.json()
@@ -601,6 +625,7 @@ async def test_multiple_comments_order(db_session, setup_clean_test_data):
         resp3 = await ac.post("/comments/", json={
             "game_name": "OrderTest",
             "page": "page1",
+            "title": "Third",
             "comment_text": "Third comment"
         }, headers=headers1)
         comment3 = resp3.json()
@@ -637,6 +662,7 @@ async def test_comment_updated_at_changes(db_session, setup_clean_test_data):
         resp = await ac.post("/comments/", json={
             "game_name": "UpdateTest",
             "page": "page1",
+            "title": "Initial",
             "comment_text": "Initial"
         }, headers=headers)
         comment = resp.json()
@@ -645,6 +671,7 @@ async def test_comment_updated_at_changes(db_session, setup_clean_test_data):
 
         # Обновление комментария
         resp = await ac.put(f"/comments/{comment_id}", json={
+            "title": "Updated",
             "comment_text": "Updated"
         }, headers=headers)
         updated_comment = resp.json()
